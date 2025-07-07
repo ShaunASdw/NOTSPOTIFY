@@ -6,6 +6,60 @@
   <title>Library</title>
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet"/>
+  <style>
+    .play-bar {
+      position: fixed;
+      bottom: 0;
+      left: 200px;
+      right: 0;
+      background-color: #121212;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid #333;
+      z-index: 1000;
+    }
+
+    .play-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .img-wrapper {
+      position: relative;
+      margin-bottom: 60px;
+    }
+
+    .hover-text {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .shake {
+      animation: shake 0.5s infinite;
+    }
+
+    @keyframes shake {
+      0% { transform: translate(0px); }
+      25% { transform: translate(2px, 0); }
+      50% { transform: translate(-2px, 0); }
+      75% { transform: translate(2px, 0); }
+      100% { transform: translate(0px); }
+    }
+
+    .remove-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: red;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
   <div class="sidebar">
@@ -16,14 +70,14 @@
       <li><a href="library.html">Library</a></li>
     </ul>
   </div>
-       <div class="text-sm text-gray-400">NOTSPOTIFY(SHAUN SPOTIFY PLAYLIST WEBSITE)</div>
+
+  <div class="text-sm text-gray-400">NOTSPOTIFY (SHAUN SPOTIFY PLAYLIST WEBSITE)</div>
+
   <div class="main-content">
     <div class="content-header">
       <h1>Library</h1>
     </div>
-    <div class="container" id="library-container">
-      <!-- Library items will go here -->
-    </div>
+    <div class="container" id="library-container"></div>
   </div>
 
   <div id="popup-modal">
@@ -39,9 +93,31 @@
     </div>
   </div>
 
+  <!-- Global Play Bar -->
+  <div class="play-bar">
+    <div class="play-info">
+      <img id="bar-img" src="" alt="" style="width:50px; height:50px; object-fit:cover;" />
+      <div>
+        <div id="bar-title" style="font-weight:bold;">Select a song to play</div>
+        <div id="bar-desc" style="font-size: 0.8em; color:gray;"></div>
+      </div>
+    </div>
+    <audio id="global-audio" controls style="width: 300px;"></audio>
+  </div>
+
   <script>
     const libraryContainer = document.getElementById('library-container');
     let library = JSON.parse(localStorage.getItem('library')) || [];
+
+    const globalAudio = document.getElementById('global-audio');
+    const barImg = document.getElementById('bar-img');
+    const barTitle = document.getElementById('bar-title');
+    const barDesc = document.getElementById('bar-desc');
+
+    // Audio error handler
+    globalAudio.onerror = function () {
+      alert("⚠️ Failed to load audio. Check the file path or format.");
+    };
 
     if (library.length === 0) {
       libraryContainer.innerHTML = "<p style='color:gray;'>Your library is empty.</p>";
@@ -53,58 +129,77 @@
         wrapper.dataset.desc = item.desc;
         wrapper.dataset.link = item.link;
         wrapper.dataset.img = item.img;
+        wrapper.dataset.audio = item.audio;
+        wrapper.dataset.lyrics = item.lyrics;
 
         wrapper.innerHTML = `
-          <img src="${item.img}" alt="${item.title}" style="pointer-events: none;">
+          <img src="${item.img}" alt="${item.title}" style="width:100%;">
           <span class="hover-text">${item.title}</span>
-          <button class="remove-btn">-</button>
+          <div class="controls">
+            <button class="play-btn">▶ Play</button>
+            <button class="remove-btn">-</button>
+          </div>
         `;
 
-        // Open modal on click
-        wrapper.addEventListener('click', () => {
-          document.getElementById('popup-img').src = wrapper.dataset.img;
-          document.getElementById('popup-title').textContent = wrapper.dataset.title;
-          document.getElementById('popup-desc').textContent = wrapper.dataset.desc;
-          document.getElementById('popup-link').href = wrapper.dataset.link;
-          document.getElementById('popup-modal').style.display = 'flex';
-          document.body.classList.add('blur-bg');
+        // Play song
+        wrapper.querySelector('.play-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          globalAudio.src = item.audio;
+          globalAudio.play();
+          barImg.src = item.img;
+          barTitle.textContent = item.title;
+          barDesc.textContent = item.desc;
         });
 
-        // Remove button logic
+        // Remove song
         wrapper.querySelector('.remove-btn').addEventListener('click', (e) => {
-          e.stopPropagation(); // prevent modal
+          e.stopPropagation();
           library = library.filter(entry => entry.title !== item.title);
           localStorage.setItem('library', JSON.stringify(library));
           location.reload();
         });
 
-        // Shake and tears on remove button hover
-        const removeBtn = wrapper.querySelector('.remove-btn');
-        removeBtn.addEventListener('mouseenter', () => {
-          wrapper.classList.add('shake');
+        // Show popup
+        wrapper.addEventListener('click', () => {
+          document.getElementById('popup-img').src = item.img;
+          document.getElementById('popup-title').textContent = item.title;
+          document.getElementById('popup-desc').textContent = item.desc;
+          document.getElementById('popup-link').href = item.link;
+          document.getElementById('popup-modal').style.display = 'flex';
+          document.body.classList.add('blur-bg');
 
-          // Create tear particles
-          for (let i = 0; i < 5; i++) {
-            const tear = document.createElement('div');
-            tear.classList.add('tear');
-            tear.style.left = Math.random() * 80 + 10 + 'px';
-            wrapper.appendChild(tear);
-
-            setTimeout(() => {
-              tear.remove();
-            }, 1500);
-          }
+          globalAudio.src = item.audio;
+          globalAudio.play();
+          barImg.src = item.img;
+          barTitle.textContent = item.title;
+          barDesc.textContent = item.desc;
         });
 
-        removeBtn.addEventListener('mouseleave', () => {
+        // Hover effects
+        wrapper.addEventListener('mouseenter', () => {
+          let shakeDuration = 0.5;
+          wrapper.classList.add('shake');
+          wrapper.style.animationDuration = shakeDuration + 's';
+          const shakeInterval = setInterval(() => {
+            shakeDuration = Math.max(0.08, shakeDuration * 0.8);
+            wrapper.style.animationDuration = shakeDuration + 's';
+          }, 1000);
+          wrapper.dataset.shakeInterval = shakeInterval;
+          wrapper.querySelector('.hover-text').style.opacity = 1;
+        });
+
+        wrapper.addEventListener('mouseleave', () => {
           wrapper.classList.remove('shake');
+          clearInterval(wrapper.dataset.shakeInterval);
+          wrapper.style.animationDuration = '';
+          wrapper.querySelector('.hover-text').style.opacity = 0;
         });
 
         libraryContainer.appendChild(wrapper);
       });
     }
 
-    // Modal close
+    // Modal close behavior
     document.querySelector('#popup-modal .close-btn').onclick = function () {
       document.getElementById('popup-modal').style.display = 'none';
       document.body.classList.remove('blur-bg');
